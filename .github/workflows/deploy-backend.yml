@@ -106,21 +106,12 @@ jobs:
             sleep 5
           done
 
-          echo "Rebuilding Azure MongoDB Atlas and Qdrant Cloud index from /app/data/raw"
+          echo "Rebuilding Azure MongoDB Atlas and Qdrant Cloud index from HYU snapshot"
           INGEST_RESPONSE="$(curl --fail --silent --show-error --max-time 3600 \
             -X POST "$BACKEND_URL/api/ingest" \
             -H "Content-Type: application/json" \
             -d '{
-              "folder": "raw",
-              "stages": {
-                "chunking": {
-                  "method": "section_tokens",
-                  "params": {
-                    "chunk_size": 256,
-                    "chunk_overlap": 32
-                  }
-                }
-              }
+              "folder": "HYU/snapshots/hyu-20261110-97dc1269"
             }')"
 
           echo "$INGEST_RESPONSE"
@@ -135,11 +126,11 @@ jobs:
           documents = get("/api/documents")
           print(json.dumps({"health": health, "documents": documents}, indent=2))
           index = health.get("index") or {}
-          if index.get("documents") != 4:
-              print("Expected 4 documents, got " + str(index.get("documents")), file=sys.stderr)
+          if index.get("documents") != 362:
+              print("Expected 362 documents, got " + str(index.get("documents")), file=sys.stderr)
               sys.exit(1)
-          if index.get("chunks") not in (211,):
-              print("Expected 211 chunks, got " + str(index.get("chunks")), file=sys.stderr)
+          if index.get("chunks") != 1867:
+              print("Expected 1867 chunks, got " + str(index.get("chunks")), file=sys.stderr)
               sys.exit(1)
           if not health["mongodb"]["ok"] or not health["qdrant"]["ok"]:
               print("MongoDB or Qdrant health check failed", file=sys.stderr)
