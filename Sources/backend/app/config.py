@@ -111,7 +111,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("GROQ_CHAT_MODEL", "groq_chat_model"),
     )
     groq_chat_models: str = Field(
-        default="qwen/qwen3.8-27b,llama-3.1-8b-instant,openai/gpt-oss-20b,llama-3.3-70b-versatile",
+        default="qwen/qwen3.8-27b,openai/gpt-oss-20b,openai/gpt-oss-120b",
         validation_alias=AliasChoices("GROQ_CHAT_MODELS", "groq_chat_models"),
     )
 
