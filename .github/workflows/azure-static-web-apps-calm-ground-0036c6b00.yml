@@ -7,46 +7,36 @@ on:
     paths:
       - "Sources/frontend/**"
       - ".github/workflows/azure-static-web-apps-calm-ground-0036c6b00.yml"
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
-    paths:
-      - "Sources/frontend/**"
-      - ".github/workflows/azure-static-web-apps-calm-ground-0036c6b00.yml"
   workflow_dispatch:
 
 jobs:
   build_and_deploy_job:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-      contents: read
+    name: Build and Deploy Frontend
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Verify frontend API URL and SWA token
+      - name: Verify secrets
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_CALM_GROUND_0036C6B00 }}
         run: |
           if [ -z "$VITE_API_BASE_URL" ] && [ -z "$VITE_API_URL" ]; then
-            echo "::error::Set VITE_API_BASE_URL (recommended) or VITE_API_URL to the Azure Container App HTTPS URL."
+            echo "::error::VITE_API_BASE_URL / VITE_API_URL kosong."
             exit 1
           fi
           echo "SWA_TOKEN length: ${#SWA_TOKEN}"
           if [ -z "$SWA_TOKEN" ]; then
-            echo "::error::Secret AZURE_STATIC_WEB_APPS_API_TOKEN_CALM_GROUND_0036C6B00 kosong."
+            echo "::error::AZURE_STATIC_WEB_APPS_API_TOKEN_CALM_GROUND_0036C6B00 kosong."
             exit 1
           fi
+
       - name: Install and Build Frontend
         working-directory: Sources/frontend
         env:
@@ -55,6 +45,7 @@ jobs:
         run: |
           npm ci
           npm run build
+
       - name: Deploy to Azure Static Web Apps
         env:
           SWA_CLI_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_CALM_GROUND_0036C6B00 }}
@@ -62,14 +53,3 @@ jobs:
           npx --yes @azure/static-web-apps-cli deploy Sources/frontend/dist \
             --deployment-token "$SWA_CLI_DEPLOYMENT_TOKEN" \
             --env production
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request Job
-    steps:
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_CALM_GROUND_0036C6B00 }}
-          action: "close"
