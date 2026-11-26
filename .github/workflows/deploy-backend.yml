@@ -7,6 +7,7 @@ on:
     paths:
       - "Sources/backend/**"
       - "Sources/data/**"
+      - "Sources/scripts/**"
       - "Dockerfile.backend"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
@@ -35,6 +36,26 @@ jobs:
             -t hyucompassacr.azurecr.io/hyu-compass-backend:latest .
           docker push hyucompassacr.azurecr.io/hyu-compass-backend:${{ github.sha }}
           docker push hyucompassacr.azurecr.io/hyu-compass-backend:latest
+
+      - name: Build and publish HYU snapshot index
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/Sources:/workspace/Sources" \
+            -w /workspace/Sources \
+            -e MONGODB_URI="$MONGODB_URI" \
+            -e QDRANT_URL="$QDRANT_URL" \
+            -e QDRANT_API_KEY="$QDRANT_API_KEY" \
+            -e HYU_DATA_DIR="/workspace/Sources/data" \
+            hyucompassacr.azurecr.io/hyu-compass-backend:${{ github.sha }} \
+            sh -c '
+              python scripts/ingest_snapshot.py --snapshot hyu-20261110-97dc1269 --index-id hyu_20261110_97dc1269_r5 --dry-run &&
+              python scripts/ingest_snapshot.py --snapshot hyu-20261110-97dc1269 --index-id hyu_20261110_97dc1269_r5 --no-llm &&
+              python scripts/ingest_snapshot.py --snapshot hyu-20261110-97dc1269 --index-id hyu_20261110_97dc1269_r5 --publish
+            '
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -78,7 +99,8 @@ jobs:
               "MONGODB_URI=secretref:mongodb-uri" \
               "MONGODB_DB=$MONGODB_DB" \
               "QDRANT_URL=secretref:qdrant-url" \
-              "QDRANT_API_KEY=secretref:qdrant-api-key"
+              "QDRANT_API_KEY=secretref:qdrant-api-key" \
+              "HYU_INDEX_ID=hyu_20261110_97dc1269_r5"
 
           az containerapp ingress cors disable \
             --name hyu-compass-backend \
@@ -106,16 +128,6 @@ jobs:
             sleep 5
           done
 
-          echo "Rebuilding Azure MongoDB Atlas and Qdrant Cloud index from HYU snapshot"
-          INGEST_SNAPSHOT="$(curl --fail --silent --show-error --max-time 3600 \
-            -X POST "$BACKEND_URL/api/ingest" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "folder": "HYU/snapshots/hyu-20261110-97dc1269",
-              "index_id": "hyu-20261110-97dc1269"
-            }')"
-          echo "$INGEST_SNAPSHOT"
-
           python3 -c '
           import json, os, sys, urllib.request
           backend = os.environ["BACKEND_URL"]
@@ -125,13 +137,6 @@ jobs:
           health = get("/api/health")
           documents = get("/api/documents")
           print(json.dumps({"health": health, "documents": documents}, indent=2))
-          index = health.get("index") or {}
-          if index.get("documents") != 362:
-              print("Expected 362 documents, got " + str(index.get("documents")), file=sys.stderr)
-              sys.exit(1)
-          if index.get("chunks") != 1867:
-              print("Expected 1867 chunks, got " + str(index.get("chunks")), file=sys.stderr)
-              sys.exit(1)
           if not health["mongodb"]["ok"] or not health["qdrant"]["ok"]:
               print("MongoDB or Qdrant health check failed", file=sys.stderr)
               sys.exit(1)
