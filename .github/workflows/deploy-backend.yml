@@ -107,14 +107,14 @@ jobs:
           done
 
           echo "Rebuilding Azure MongoDB Atlas and Qdrant Cloud index from HYU snapshot"
-          INGEST_RESPONSE="$(curl --fail --silent --show-error --max-time 3600 \
+          INGEST_SNAPSHOT="$(curl --fail --silent --show-error --max-time 3600 \
             -X POST "$BACKEND_URL/api/ingest" \
             -H "Content-Type: application/json" \
             -d '{
-              "folder": "HYU/snapshots/hyu-20261110-97dc1269"
+              "folder": "HYU/snapshots/hyu-20261110-97dc1269",
+              "index_id": "hyu-20261110-97dc1269"
             }')"
-
-          echo "$INGEST_RESPONSE"
+          echo "$INGEST_SNAPSHOT"
 
           python3 -c '
           import json, os, sys, urllib.request
